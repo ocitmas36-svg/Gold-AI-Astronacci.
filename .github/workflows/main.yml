@@ -1,19 +1,27 @@
 name: Gold AI Runner
+
 on:
   schedule:
-    - cron: '0 * * * *' # Jalan otomatis setiap jam (00, 01, 02...)
-  workflow_dispatch: # Supaya bisa kamu jalankan manual lewat tombol di HP
+    # Menjalankan bot setiap 1 jam secara otomatis
+    - cron: '0 * * * *'
+  workflow_dispatch:
+    # Memungkinkan kamu menjalankan bot secara manual kapan saja
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout code
+        uses: actions/checkout@v3
+
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: '3.9'
+
       - name: Install Dependencies
-        run: pip install yfinance pandas
-      - name: Run AI Analysis
+        run: |
+          pip install yfinance pandas requests
+
+      - name: Run Gold AI Analysis
         run: python bot_emas.py
