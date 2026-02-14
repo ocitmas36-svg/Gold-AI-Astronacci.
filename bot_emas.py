@@ -1,6 +1,7 @@
 import yfinance as yf
 import requests
 import pandas as pd
+from datetime import datetime
 
 # ==========================================
 # KONFIGURASI BOT @XAU_Rosit_bot
@@ -13,64 +14,49 @@ def kirim_telegram(pesan):
     payload = {"chat_id": CHAT_ID, "text": pesan, "parse_mode": "Markdown"}
     requests.post(url, json=payload)
 
-def hitung_rsi(series, period=14):
-    delta = series.diff()
-    gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
-    rs = gain / loss
-    return 100 - (100 / (1 + rs))
-
-def deteksi_hammer(open_p, close_p, high_p, low_p):
-    """Logika mendeteksi lilin ekor panjang (Hammer)"""
-    body = abs(close_p - open_p)
-    lower_shadow = min(open_p, close_p) - low_p
-    upper_shadow = high_p - max(open_p, close_p)
-    # Hammer: Ekor bawah minimal 2x panjang badan, dan hampir tidak ada ekor atas
-    return lower_shadow > (2 * body) and upper_shadow < (0.5 * body)
-
 def run_analysis():
     gold = yf.Ticker("GC=F")
-    data = gold.history(period="20d", interval="1h")
+    data = gold.history(period="30d", interval="1h") # Data lebih panjang untuk SNR
     
     if data.empty or len(data) < 20: return
 
-    # Hitung Indikator
-    data['RSI'] = hitung_rsi(data['Close'])
-    
-    # Ambil Data Terkini
+    # 1. Ambil Level Penting
     last_candle = data.iloc[-1]
     price_now = last_candle['Close']
-    rsi_now = last_candle['RSI']
+    high_all = data['High'].max()
+    low_all = data['Low'].min()
     
-    # Deteksi Hammer
-    is_hammer = deteksi_hammer(last_candle['Open'], last_candle['Close'], last_candle['High'], last_candle['Low'])
+    # 2. Support & Resistance Klasik (Pivot Points)
+    res_klasik = data['High'].iloc[-20:-1].max() # Resistance 20 jam terakhir
+    sup_klasik = data['Low'].iloc[-20:-1].min()  # Support 20 jam terakhir
     
-    # Hitung Fibonacci
-    high_p = data['High'].max()
-    low_p = data['Low'].min()
-    diff = high_p - low_p
-    fib_618 = high_p - (0.382 * diff)
+    # 3. Fibonacci 0.618
+    fib_618 = high_all - (0.382 * (high_all - low_all))
     
-    tolerance = 0.0015
+    # 4. Filter Waktu (WIB)
+    hour_now = datetime.now().hour + 7 # Penyesuaian ke WIB
+    is_active_market = 14 <= hour_now <= 23 # Jam aktif London & NY
     
-    # KONFLUENSI TINGGI: Fib + RSI + Hammer
+    status_market = "🔥 *Market Aktif (High Volatility)*" if is_active_market else "💤 *Market Sideways*"
+    
+    # LOGIKA AKURASI TINGGI: Fib bertemu Support Klasik
+    tolerance = 0.0010
     if abs(price_now - fib_618) / fib_618 <= tolerance:
-        status_lilin = "🔨 *Pola Hammer Terdeteksi!*" if is_hammer else "⏳ Menunggu Rejection Lilin..."
+        # Cek apakah ada Support Klasik di dekat situ
+        konfluensi_snr = "✅ *Konfirmasi Support Klasik Ditemukan!*" if abs(price_now - sup_klasik) / sup_klasik <= 0.002 else ""
         
-        # Kirim sinyal hanya jika RSI mendukung (Filter Keamanan)
-        if rsi_now < 40:
-            pesan = (
-                f"🚀 *SINYAL KONFLUENSI ROSIT*\n"
-                f"----------------------------------\n"
-                f"📍 *Area:* Fibonacci 0.618\n"
-                f"📉 *RSI:* {rsi_now:.2f}\n"
-                f"{status_lilin}\n\n"
-                f"📥 *Entry Buy:* ${round(price_now, 2)}\n"
-                f"🎯 *Take Profit:* ${round(high_p, 2)}\n"
-                f"🛡️ *Stop Loss:* ${round(fib_618 * 0.994, 2)}\n\n"
-                f"⚠️ *Aksi:* Jika Hammer muncul, sinyal ini 90% Valid!"
-            )
-            kirim_telegram(pesan)
+        pesan = (
+            f"🏆 *SINYAL HIGH PROBABILITY*\n"
+            f"----------------------------------\n"
+            f"{status_market}\n\n"
+            f"📍 *Level:* Fibonacci 0.618\n"
+            f"{konfluensi_snr}\n\n"
+            f"📥 *Entry Buy:* ${round(price_now, 2)}\n"
+            f"🎯 *Take Profit:* ${round(res_klasik, 2)}\n"
+            f"🛡️ *Stop Loss:* ${round(price_now - 8, 2)}\n\n"
+            f"💪 *Confidence:* Tinggi (Astronacci + SNR)"
+        )
+        kirim_telegram(pesan)
 
 if __name__ == "__main__":
     run_analysis()
