@@ -1,21 +1,25 @@
 name: Gold Bot Rosit
 on:
   schedule:
-    - cron: '*/15 * * * *'  # Jalan tiap 15 menit
-  workflow_dispatch:        # Tombol manual
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
+
       - name: Set up Python
-        uses: ambassadors/setup-python@v2 # Pastikan ini benar
+        uses: actions/setup-python@v4
         with:
           python-version: '3.9'
+
       - name: Install dependencies
-        run: pip install requests pytz
+        run: |
+          pip install requests pytz
+
       - name: Run Bot
         run: python bot_emas.py
         
