@@ -2,7 +2,7 @@ import requests
 from datetime import datetime
 import pytz
 
-# --- KONFIGURASI VALID ROSIT ---
+# --- KONFIGURASI FIX (SUDAH DITES BERHASIL) ---
 TOKEN = "8448141154:AAFSrEfURZe_za0I8jI5h5o4_Z7mWvOSk4Q"
 CHAT_ID = "7425438429"
 
@@ -26,13 +26,13 @@ def main():
         rsi = ((p - l) / d_range) * 100 if d_range != 0 else 50
         z_score = (p - ((h+l+o+p)/4)) / (max(d_range/4, 0.01))
 
-        # 3. SCORING
+        # 3. SCORING MATRIX
         score = 0
         logs = []
         if z_score < -1.8: score += 30; logs.append("Z-Score: Murah")
         if p < vwap: score += 20; logs.append("VWAP: Discount")
         if rsi < 30: score += 20; logs.append("RSI: Oversold")
-        if m_cp < -2.0: score += 30; logs.append("Safe Haven Aktif")
+        if m_cp < -2.0: score += 30; logs.append("Safe Haven Active")
 
         wib = pytz.timezone('Asia/Jakarta')
         tabel_waktu = datetime.now(wib).strftime('%H:%M:%S')
@@ -59,11 +59,12 @@ def main():
                 f"📊 SCORE: {score}/100\n"
                 f"━━━━━━━━━━━━━━━━━━\n"
                 f"⚠️ **KETERANGAN:**\n"
-                f"Market belum ideal. Bot Standby menunggu momen.\n"
+                f"Market belum ideal untuk trending. Bot Standby.\n"
+                f"━━━━━━━━━━━━━━━━━━\n"
                 f"🔍 RSI {rsi:.1f} | Z-Score {z_score:.2f}"
             )
 
-        # KIRIM
+        # KIRIM KE TELEGRAM
         url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
         requests.post(url, json={"chat_id": CHAT_ID, "text": status_text, "parse_mode": "Markdown"})
 
@@ -72,4 +73,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-                    
+        
