@@ -3,9 +3,9 @@ import telebot
 import pandas as pd
 from datetime import datetime
 
-# --- DATA RESMI ROSIT GOLD AI (UPDATED ID) ---
+# --- DATA RESMI ROSIT GOLD AI ---
 TOKEN = "8448141154:AAFSrEfURZe_za0I8jI5h5o4_Z7mWvOSk4Q"
-CHAT_ID = "7425438429"  # ID asli Rosit yang baru
+CHAT_ID = "7425438429"
 bot = telebot.TeleBot(TOKEN)
 
 def analyze_market():
@@ -13,45 +13,58 @@ def analyze_market():
     gold = yf.Ticker("GC=F")
     df = gold.history(period="2d", interval="1h")
     
-    if df.empty:
-        return "⚠️ Data pasar tidak tersedia. Coba lagi nanti."
+    if df.empty or len(df) < 2:
+        return "⚠️ Data pasar tidak tersedia atau pasar sedang libur."
 
-    # 2. Ambil Harga & Fibonacci 0.618
+    # 2. Ambil Harga & Data Teknis
     current_price = df['Close'].iloc[-1]
     high_24h = df['High'].max()
     low_24h = df['Low'].min()
     fibo_618 = high_24h - (0.618 * (high_24h - low_24h))
 
+    # 3. Hitung TP dan SL Otomatis
+    tp_price = high_24h  # Target ke puncak harian
+    sl_price = low_24h - 5 # Batas rugi 5 point di bawah titik terendah
+
     status = "WAIT AND SEE ⏳"
+    trade_plan = "Belum ada rencana. Tunggu harga masuk area Fibo."
     reason = ""
 
-    # 3. Logika Analisis & Penyebab
+    # 4. Logika Sinyal & Rencana Tempur
     if current_price <= fibo_618 * 1.0005:
         status = "🚀 SINYAL BUY (ASTRONACCI)"
-        reason = "Harga masuk area DISKON Golden Ratio 0.618. Ini momen beli terbaik karena harga sudah murah secara teknis."
+        reason = "Harga masuk area DISKON Golden Ratio. Titik pantul kuat!"
+        trade_plan = (
+            f"✅ *ENTRY:* Buy di ${current_price:.2f}\n"
+            f"🎯 *TARGET (TP):* ${tp_price:.2f}\n"
+            f"🛡️ *STOP LOSS (SL):* ${sl_price:.2f}"
+        )
     elif current_price >= high_24h * 0.999:
         status = "🔥 SINYAL SELL (RESISTANCE)"
-        reason = "Harga berada di puncak tertinggi harian. Sangat berisiko buat beli sekarang, rawan koreksi turun."
+        reason = "Harga sudah dipuncak harian. Sangat berbahaya untuk beli sekarang."
+        trade_plan = "❌ *JANGAN BUY:* Harga terlalu mahal, rawan longsor."
     else:
-        # Penjelasan kenapa jangan entry
         if current_price > fibo_618:
-            reason = "Harga masih di area 'tanggung'. Belum masuk harga diskon Fibonacci, risiko rugi lebih besar daripada potensi untung."
+            reason = "Harga masih 'menggantung' di area nanggung. Risiko lebih besar dari potensi untung."
         else:
-            reason = "Belum ada konfirmasi pola yang kuat. Menunggu momen yang pas adalah bagian dari profit."
+            reason = "Menunggu konfirmasi pola pantulan yang jelas."
+        trade_plan = "😴 *SABAR:* Belum ada setup yang aman."
 
-    # 4. Susun Pesan
+    # 5. Susun Pesan Profesional
     waktu = datetime.now().strftime("%H:%M")
     message = (
         f"💰 *ROSIT GOLD AI REPORT*\n"
-        f"🤖 Bot: @XAU_Rosit_bot\n"
         f"📅 Jam: {waktu} WIB (Server Time)\n"
         f"💵 Harga Emas: *${current_price:.2f}*\n"
         f"📈 Level Fibo 61.8%: ${fibo_618:.2f}\n"
         f"----------------------------\n"
-        f"📢 *STATUS: {status}*\n"
+        f"📢 *STATUS:* {status}\n"
         f"🧐 *ANALISIS:* {reason}\n"
         f"----------------------------\n"
-        f"💡 _Disiplin adalah kunci sukses trading, Rosit!_"
+        f"📝 *TRADE PLAN ROSIT:*\n"
+        f"{trade_plan}\n"
+        f"----------------------------\n"
+        f"💡 _Selalu gunakan Lot kecil (0.01) untuk menjaga modal._"
     )
     return message
 
@@ -59,6 +72,6 @@ if __name__ == "__main__":
     try:
         content = analyze_market()
         bot.send_message(CHAT_ID, content, parse_mode="Markdown")
-        print(f"Laporan sukses dikirim ke ID {CHAT_ID}!")
+        print("Laporan Trade Plan sukses terkirim!")
     except Exception as e:
         print(f"Gagal: {e}")
