@@ -9,38 +9,47 @@ CHAT_ID = "1430030501"
 bot = telebot.TeleBot(TOKEN)
 
 def analyze_market():
-    # Ambil data emas
+    # 1. Ambil data emas
     gold = yf.Ticker("GC=F")
     df = gold.history(period="2d", interval="1h")
     
     if df.empty:
         return "⚠️ Data pasar tidak tersedia saat ini."
 
+    # 2. Data Harga & Fibonacci sederhana
     current_price = df['Close'].iloc[-1]
     high_24h = df['High'].max()
     low_24h = df['Low'].min()
     fibo_618 = high_24h - (0.618 * (high_24h - low_24h))
 
     status = "WAIT AND SEE ⏳"
-    reason = "Harga sedang di tengah-tengah. Belum ada momen bagus sesuai strategi Astronacci."
+    reason = ""
 
+    # 3. Logika Analisis Astronacci & Penyebab Jangan Entry
     if current_price <= fibo_618 * 1.001:
         status = "🚀 SINYAL BUY (ASTRONACCI)"
-        reason = "Harga masuk area Golden Ratio 0.618. Ini harga murah untuk beli!"
+        reason = "Harga sudah masuk area Golden Ratio 61.8%. Ini momen beli terbaik karena harga sudah cukup murah."
     elif current_price >= high_24h * 0.999:
         status = "🔥 SINYAL SELL (RESISTANCE)"
-        reason = "Harga sudah dipuncak tertinggi harian. Terlalu berisiko buat beli sekarang."
+        reason = "Harga berada di puncak tertinggi harian. Sangat berisiko untuk beli sekarang, potensi koreksi turun sangat besar."
+    else:
+        # Alasan kenapa jangan entry
+        if current_price > fibo_618:
+            reason = "Harga masih di area 'tanggung'. Belum masuk harga diskon Fibonacci, risiko rugi lebih besar daripada potensi untung."
+        else:
+            reason = "Belum ada konfirmasi pola yang kuat. Dalam trading, menunggu momen yang pas adalah bagian dari profit."
 
+    # 4. Susun Pesan
     waktu = datetime.now().strftime("%H:%M")
     message = (
         f"💰 *LAPORAN BISNIS ROSIT*\n"
-        f"📅 Jam: {waktu} WIB\n"
-        f"💵 Harga: *${current_price:.2f}*\n"
+        f"📅 Jam: {waktu} WIB (Server Time)\n"
+        f"💵 Harga Emas: *${current_price:.2f}*\n"
         f"----------------------------\n"
         f"📢 *STATUS: {status}*\n"
         f"🧐 *ANALISIS:* {reason}\n"
         f"----------------------------\n"
-        f"💡 _Menjaga modal adalah kunci profit._"
+        f"💡 _Menjaga modal lebih penting daripada entry yang dipaksakan._"
     )
     return message
 
@@ -48,6 +57,6 @@ if __name__ == "__main__":
     try:
         content = analyze_market()
         bot.send_message(CHAT_ID, content, parse_mode="Markdown")
-        print("Sukses!")
+        print("Laporan berhasil dikirim!")
     except Exception as e:
         print(f"Error: {e}")
