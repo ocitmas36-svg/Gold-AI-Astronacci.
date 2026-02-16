@@ -3,20 +3,20 @@ import telebot
 import pandas as pd
 from datetime import datetime
 
-# --- KONFIGURASI ---
-TOKEN = "7963242048:AAHOf8G_XhYv1Wp6v8_V3E4H-9Yt8T0A2F8"
+# --- KONFIGURASI TERBARU (TOKEN UPDATE) ---
+TOKEN = "8448141154:AAFSrEfURZe_za0I8jI5h5o4_Z7mWvOSk4Q"
 CHAT_ID = "1430030501"
 bot = telebot.TeleBot(TOKEN)
 
 def analyze_market():
-    # Ambil data emas (Gold Futures)
+    # 1. Ambil data emas
     gold = yf.Ticker("GC=F")
     df = gold.history(period="2d", interval="1h")
     
     if df.empty:
-        return "⚠️ Data pasar tidak tersedia."
+        return "⚠️ Data pasar tidak tersedia. Mungkin pasar sedang tutup."
 
-    # Harga saat ini dan Fibonacci 0.618
+    # 2. Ambil Harga & Level Fibonacci
     current_price = df['Close'].iloc[-1]
     high_24h = df['High'].max()
     low_24h = df['Low'].min()
@@ -25,20 +25,20 @@ def analyze_market():
     status = "WAIT AND SEE ⏳"
     reason = ""
 
-    # Logika Astronacci & Alasan
+    # 3. Logika Analisis & Penyebab
     if current_price <= fibo_618 * 1.001:
         status = "🚀 SINYAL BUY (ASTRONACCI)"
-        reason = "Harga sudah menyentuh Golden Ratio 0.618. Ini adalah area 'diskon' terbaik untuk melakukan pembelian."
+        reason = "Harga masuk area Golden Ratio 0.618. Ini harga murah untuk beli!"
     elif current_price >= high_24h * 0.999:
         status = "🔥 SINYAL SELL (RESISTANCE)"
-        reason = "Harga sudah dipuncak tertinggi. Sangat berisiko untuk beli sekarang, rawan koreksi turun tajam."
+        reason = "Harga sudah dipuncak tertinggi harian. Terlalu berisiko buat beli sekarang."
     else:
-        # Penjelasan kenapa jangan entry
         if current_price > fibo_618:
-            reason = "Harga masih 'menggantung' di tengah. Belum cukup murah untuk beli, tapi terlalu tanggung untuk jual. Sabar adalah bagian dari profit."
+            reason = "Harga masih di area 'tanggung'. Belum cukup murah untuk beli, tapi terlalu nanggung untuk jual."
         else:
-            reason = "Pergerakan harga belum mengonfirmasi pola pantulan yang kuat. Lebih baik menunggu daripada terjebak."
+            reason = "Belum ada konfirmasi pola yang kuat. Menunggu momen yang pas adalah bagian dari profit."
 
+    # 4. Susun Pesan
     waktu = datetime.now().strftime("%H:%M")
     message = (
         f"💰 *LAPORAN BISNIS ROSIT*\n"
@@ -49,7 +49,7 @@ def analyze_market():
         f"📢 *STATUS: {status}*\n"
         f"🧐 *ANALISIS:* {reason}\n"
         f"----------------------------\n"
-        f"💡 _Jangan dipaksa, pasar emas selalu buka setiap hari._"
+        f"💡 _Pesan ini otomatis dikirim setiap jam._"
     )
     return message
 
@@ -57,6 +57,6 @@ if __name__ == "__main__":
     try:
         content = analyze_market()
         bot.send_message(CHAT_ID, content, parse_mode="Markdown")
-        print("Laporan berhasil terkirim!")
+        print("Laporan sukses dikirim dengan TOKEN BARU!")
     except Exception as e:
         print(f"Error: {e}")
