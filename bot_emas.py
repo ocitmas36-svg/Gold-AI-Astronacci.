@@ -1,77 +1,81 @@
-import yfinance as yf
-import telebot
-import pandas as pd
-from datetime import datetime
+import requests
+import os
 
-# --- DATA RESMI ROSIT GOLD AI (MODE SCALPING) ---
-TOKEN = "8448141154:AAFSrEfURZe_za0I8jI5h5o4_Z7mWvOSk4Q"
-CHAT_ID = "7425438429"
-bot = telebot.TeleBot(TOKEN)
+# --- KONFIGURASI ---
+TOKEN = os.getenv('TELEGRAM_TOKEN')
+CHAT_ID = os.getenv('CHAT_ID')
 
-def analyze_market():
-    # 1. Ambil data emas terbaru
-    gold = yf.Ticker("GC=F")
-    df = gold.history(period="2d", interval="1h")
-    
-    if df.empty or len(df) < 2:
-        return "⚠️ Data pasar tidak tersedia atau pasar sedang libur."
+def get_gold_price():
+    url = "https://api.binance.com/api/v3/ticker/24hr?symbol=PAXGUSDT"
+    try:
+        response = requests.get(url)
+        data = response.json()
+        return {
+            "price": float(data['lastPrice']),
+            "high": float(data['highPrice']),
+            "low": float(data['lowPrice'])
+        }
+    except Exception as e:
+        print(f"Error ambil data: {e}")
+        return None
 
-    # 2. Ambil Harga & Data Teknis
-    current_price = df['Close'].iloc[-1]
-    high_24h = df['High'].max()
-    low_24h = df['Low'].min()
+def send_telegram(message):
+    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+    payload = {"chat_id": CHAT_ID, "text": message, "parse_mode": "Markdown"}
+    requests.post(url, json=payload)
+
+def main():
+    gold_data = get_gold_price()
+    if not gold_data:
+        return
+
+    current_price = gold_data['price']
+    high_24h = gold_data['high']
+    low_24h = gold_data['low']
+
+    # HITUNG FIBONACCI (Golden Ratio 61.8%)
     fibo_618 = high_24h - (0.618 * (high_24h - low_24h))
 
-    # 3. Hitung TP dan SL Otomatis (MODE SCALPING - JARAK PENDEK)
-    # Target Untung (TP) dibuat sekitar $8 dari harga saat ini
-    tp_price = current_price + 8
-    # Batas Rugi (SL) dibuat sekitar $5 di bawah harga saat ini
-    sl_price = current_price - 5
-
-    status = "WAIT AND SEE ⏳"
-    trade_plan = "Belum ada rencana. Tunggu harga masuk area Fibo."
-    reason = ""
-
-    # 4. Logika Sinyal & Rencana Tempur
-    if current_price <= fibo_618 * 1.001:
-        status = "🚀 SINYAL BUY (SCALPING)"
-        reason = "Harga masuk area Golden Ratio. Bagus untuk ambil untung cepat (Scalping)!"
-        trade_plan = (
-            f"✅ *ENTRY:* Buy di ${current_price:.2f}\n"
-            f"🎯 *TARGET TP:* ${tp_price:.2f}\n"
-            f"🛡️ *STOP LOSS:* ${sl_price:.2f}"
-        )
-    elif current_price >= high_24h * 0.999:
-        status = "🔥 SINYAL SELL (PUNCAK)"
-        reason = "Harga sudah dipuncak harian. Hati-hati koreksi turun."
-        trade_plan = "❌ *JANGAN BUY:* Harga terlalu mahal."
+    # --- LOGIKA SINYAL DINAMIS ---
+    action = None
+    if current_price <= fibo_618:
+        # AREA BUY
+        status = "🚀 SINYAL BUY (AREA DISKON)"
+        analisis = "Harga di bawah Golden Ratio. Potensi pantulan naik!"
+        tp_price = current_price + 6.0
+        sl_price = current_price - 4.0
+        emoji = "🟢"
+        action = "BUY"
+    elif current_price >= high_24h * 0.998:
+        # AREA SELL
+        status = "🔥 SINYAL SELL (AREA PUNCAK)"
+        analisis = "Harga mendekati titik tertinggi harian. Potensi koreksi turun!"
+        tp_price = current_price - 6.0
+        sl_price = current_price + 4.0
+        emoji = "🔴"
+        action = "SELL"
     else:
-        reason = "Harga berada di tengah. Sabar menunggu harga masuk ke area diskon Fibonacci."
-        trade_plan = "😴 *SABAR:* Belum ada setup scalping yang aman."
+        # Jika tidak ada momen, bot diam (tidak kirim ke Telegram)
+        print(f"Monitoring... Harga saat ini ${current_price:.2f} (Belum ada momen)")
+        return 
 
-    # 5. Susun Pesan Profesional
-    waktu = datetime.now().strftime("%H:%M")
-    message = (
-        f"💰 *ROSIT GOLD AI (SCALPING MODE)*\n"
-        f"📅 Jam: {waktu} WIB (Server Time)\n"
-        f"💵 Harga Emas: *${current_price:.2f}*\n"
-        f"📈 Level Fibo 61.8%: ${fibo_618:.2f}\n"
-        f"----------------------------\n"
-        f"📢 *STATUS:* {status}\n"
-        f"🧐 *ANALISIS:* {reason}\n"
-        f"----------------------------\n"
-        f"📝 *TRADE PLAN SCALPING:*\n"
-        f"{trade_plan}\n"
-        f"----------------------------\n"
-        f"💡 _Mode Scalping: Target lebih dekat, untung lebih cepat!_"
+    # --- PENYUSUNAN PESAN (Hanya terkirim jika ada Action) ---
+    pesan = (
+        f"{emoji} **ROSIT GOLD AI: MOMEN TERDETEKSI!**\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"💵 Harga: ${current_price:.2f}\n"
+        f"📊 Status: {status}\n"
+        f"🧐 Analisis: {analisis}\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"📝 **STRATEGI SCALPING:**\n"
+        f"✅ ENTRY : {action} di ${current_price:.2f}\n"
+        f"🎯 TARGET TP: ${tp_price:.2f}\n"
+        f"🛡️ STOP LOSS: ${sl_price:.2f}\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"🔥 *Sikat cepat, amankan profit!*"
     )
-    return message
+    
+    send_telegram(pesan)
 
 if __name__ == "__main__":
-    try:
-        content = analyze_market()
-        bot.send_message(CHAT_ID, content, parse_mode="Markdown")
-        print("Laporan Scalping sukses terkirim!")
-    except Exception as e:
-        print(f"Gagal: {e}")
-    
+    main()
