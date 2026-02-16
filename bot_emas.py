@@ -36,33 +36,46 @@ def main():
         if rsi < 30: score += 20; logs.append("RSI: Oversold")
         if m_cp < -2.0: score += 30; logs.append("Safe Haven Active")
 
-        # 4. DECISION
-        action = None
-        if score >= 70: action = "BUY"
-        elif rsi > 80: action = "SELL"
-        else: return
-
-        # 5. RISK MANAGEMENT
-        tp = 8.0
-        sl = 4.0
+        # 4. PENENTUAN STATUS & PESAN
         wib = pytz.timezone('Asia/Jakarta')
         tabel_waktu = datetime.now(wib).strftime('%H:%M:%S')
+        
+        if score >= 70:
+            # PESAN SINYAL GACOR
+            action = "🚀 BUY NOW"
+            tp = 8.0
+            sl = 4.0
+            status_text = (
+                f"🔱 **SINYAL OMNISCIENT: GACOR!**\n"
+                f"━━━━━━━━━━━━━━━━━━\n"
+                f"🕒 TIME: {tabel_waktu} WIB\n"
+                f"💵 PRICE: ${p:.2f}\n"
+                f"📊 SCORE: {score}/100 (SANGAT BAGUS)\n"
+                f"━━━━━━━━━━━━━━━━━━\n"
+                f"⚡ **ACTION: {action}**\n"
+                f"🎯 TARGET PROFIT: ${p+tp:.2f}\n"
+                f"🛡️ STOP LOSS: ${p-sl:.2f}\n"
+                f"━━━━━━━━━━━━━━━━━━\n"
+                f"💡 *Alasan:* {', '.join(logs)}"
+            )
+        else:
+            # PESAN HEARTBEAT (SKOR RENDAH)
+            status_text = (
+                f"📡 **OMNISCIENT STATUS: STANDBY**\n"
+                f"━━━━━━━━━━━━━━━━━━\n"
+                f"🕒 TIME: {tabel_waktu} WIB\n"
+                f"💵 PRICE: ${p:.2f}\n"
+                f"📊 SCORE: {score}/100\n"
+                f"━━━━━━━━━━━━━━━━━━\n"
+                f"⚠️ **KETERANGAN:**\n"
+                f"Market belum cukup bagus untuk trading. Bot sedang menunggu peluang emas. Tetap sabar, Rosit!\n"
+                f"━━━━━━━━━━━━━━━━━━\n"
+                f"🔍 *Analisa:* RSI {rsi:.1f} | Z-Score {z_score:.2f}"
+            )
 
-        # 6. KIRIM PESAN
-        text = (
-            f"🔱 **THE OMNISCIENT FINAL**\n"
-            f"━━━━━━━━━━━━━━━━━━\n"
-            f"🕒 TIME: {tabel_waktu} WIB\n"
-            f"💵 PRICE: ${p:.2f}\n"
-            f"📊 SCORE: {score}/100\n"
-            f"━━━━━━━━━━━━━━━━━━\n"
-            f"⚡ **ACTION: {action}**\n"
-            f"🎯 TP: {p+tp if action=='BUY' else p-tp:.2f}\n"
-            f"🛡️ SL: {p-sl if action=='BUY' else p+sl:.2f}\n"
-            f"━━━━━━━━━━━━━━━━━━\n"
-            f"💡 *Logic:* {', '.join(logs)}"
-        )
-        requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={"chat_id": CHAT_ID, "text": text, "parse_mode": "Markdown"})
+        # KIRIM KE TELEGRAM
+        requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", 
+                      json={"chat_id": CHAT_ID, "text": status_text, "parse_mode": "Markdown"})
 
     except Exception as e:
         print(f"Terjadi kesalahan: {e}")
