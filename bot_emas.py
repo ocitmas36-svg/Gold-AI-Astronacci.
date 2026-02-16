@@ -3,9 +3,9 @@ import telebot
 import pandas as pd
 from datetime import datetime
 
-# --- DATA RESMI ROSIT GOLD AI ---
+# --- DATA RESMI ROSIT GOLD AI (UPDATED ID) ---
 TOKEN = "8448141154:AAFSrEfURZe_za0I8jI5h5o4_Z7mWvOSk4Q"
-CHAT_ID = "1430030501"
+CHAT_ID = "7425438429"  # ID asli Rosit yang baru
 bot = telebot.TeleBot(TOKEN)
 
 def analyze_market():
@@ -14,9 +14,9 @@ def analyze_market():
     df = gold.history(period="2d", interval="1h")
     
     if df.empty:
-        return "⚠️ Data pasar tidak tersedia. Coba lagi beberapa saat lagi."
+        return "⚠️ Data pasar tidak tersedia. Coba lagi nanti."
 
-    # 2. Ambil Harga Terakhir & Hitung Fibonacci 61.8%
+    # 2. Ambil Harga & Fibonacci 0.618
     current_price = df['Close'].iloc[-1]
     high_24h = df['High'].max()
     low_24h = df['Low'].min()
@@ -25,21 +25,21 @@ def analyze_market():
     status = "WAIT AND SEE ⏳"
     reason = ""
 
-    # 3. Logika Analisis & Penyebab (Astronacci Based)
+    # 3. Logika Analisis & Penyebab
     if current_price <= fibo_618 * 1.0005:
         status = "🚀 SINYAL BUY (ASTRONACCI)"
-        reason = "Harga sudah masuk area DISKON Golden Ratio 0.618. Ini momen beli terbaik karena harga sudah cukup murah secara teknis."
+        reason = "Harga masuk area DISKON Golden Ratio 0.618. Ini momen beli terbaik karena harga sudah murah secara teknis."
     elif current_price >= high_24h * 0.999:
         status = "🔥 SINYAL SELL (RESISTANCE)"
-        reason = "Harga berada di puncak tertinggi harian. Terlalu berisiko buat beli sekarang, potensi koreksi turun sangat besar."
+        reason = "Harga berada di puncak tertinggi harian. Sangat berisiko buat beli sekarang, rawan koreksi turun."
     else:
         # Penjelasan kenapa jangan entry
         if current_price > fibo_618:
-            reason = "Harga masih 'mengambang' di area nanggung. Belum masuk harga diskon Fibonacci, risiko rugi lebih besar daripada potensi untung."
+            reason = "Harga masih di area 'tanggung'. Belum masuk harga diskon Fibonacci, risiko rugi lebih besar daripada potensi untung."
         else:
-            reason = "Kondisi pasar sedang tidak menentu. Belum ada konfirmasi pola pantulan yang jelas. Sabar adalah bagian dari profit."
+            reason = "Belum ada konfirmasi pola yang kuat. Menunggu momen yang pas adalah bagian dari profit."
 
-    # 4. Susun Pesan Profesional
+    # 4. Susun Pesan
     waktu = datetime.now().strftime("%H:%M")
     message = (
         f"💰 *ROSIT GOLD AI REPORT*\n"
@@ -51,7 +51,7 @@ def analyze_market():
         f"📢 *STATUS: {status}*\n"
         f"🧐 *ANALISIS:* {reason}\n"
         f"----------------------------\n"
-        f"💡 _Menjaga modal lebih penting daripada mencari profit yang dipaksakan._"
+        f"💡 _Disiplin adalah kunci sukses trading, Rosit!_"
     )
     return message
 
@@ -59,6 +59,6 @@ if __name__ == "__main__":
     try:
         content = analyze_market()
         bot.send_message(CHAT_ID, content, parse_mode="Markdown")
-        print("Laporan sukses terkirim ke @XAU_Rosit_bot!")
+        print(f"Laporan sukses dikirim ke ID {CHAT_ID}!")
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Gagal: {e}")
