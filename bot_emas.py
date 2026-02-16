@@ -8,47 +8,37 @@ CHAT_ID = "7425438429"
 
 def main():
     try:
-        # 1. AMBIL DATA HARGA
+        # 1. AMBIL HARGA
         res = requests.get("https://api.binance.com/api/v3/ticker/24hr?symbol=PAXGUSDT").json()
-        p = float(res['lastPrice'])
-        h = float(res['highPrice'])
-        l = float(res['lowPrice'])
+        price = float(res['lastPrice'])
         
-        # 2. LOGIKA MATEMATIKA SEDERHANA
-        rsi = ((p - l) / (h - l)) * 100 if (h - l) != 0 else 50
-        
-        # 3. WAKTU JAKARTA
+        # 2. WAKTU JAKARTA
         tz = pytz.timezone('Asia/Jakarta')
         waktu = datetime.now(tz).strftime('%H:%M:%S')
         
-        # 4. PENENTUAN STATUS (TANPA DEKORASI RUMIT)
-        if rsi < 40:
-            status = "SINYAL: GACOR (BUY)"
-            action = f"ACTION: BUY NOW\nTP: ${p+7:.2f}\nSL: ${p-3.5:.2f}"
-        else:
-            status = "STATUS: STANDBY"
-            action = "Keterangan: Market belum ideal."
-
-        # PESAN DIBUAT POLOS AGAR TELEGRAM TIDAK MENOLAK
+        # 3. PESAN POLOS (TANPA BINTANG / GARIS KHUSUS)
         pesan = (
-            f"--- {status} ---\n\n"
-            f"JAM : {waktu} WIB\n"
-            f"GOLD: ${p:.2f}\n"
-            f"RSI : {rsi:.1f}\n\n"
-            f"{action}\n\n"
-            f"Pantau terus ya Rosit!"
+            "LAPORAN PASAR EMAS\n"
+            "------------------\n"
+            f"JAM   : {waktu} WIB\n"
+            f"HARGA : ${price:.2f}\n"
+            "------------------\n"
+            "Status: Bot Aktif Memantau"
         )
 
-        # 5. KIRIM KE TELEGRAM (Tanpa Parse Mode)
+        # 4. KIRIM (TANPA PARSE_MODE)
         url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-        r = requests.post(url, json={"chat_id": CHAT_ID, "text": pesan})
+        payload = {"chat_id": CHAT_ID, "text": pesan}
         
-        # Tampilkan hasil di log GitHub
-        print(f"Status Kirim: {r.status_code}")
-        print(f"Respon: {r.text}")
+        r = requests.post(url, json=payload)
+        
+        # Munculkan di log GitHub untuk kita cek
+        print(f"Status: {r.status_code}")
+        print(f"Respon Telegram: {r.text}")
 
     except Exception as e:
         print(f"Error: {e}")
 
 if __name__ == "__main__":
     main()
+    
