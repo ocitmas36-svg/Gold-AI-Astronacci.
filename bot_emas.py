@@ -1,85 +1,83 @@
 import yfinance as yf
+import telebot
 import pandas as pd
-import requests
+import os
 from datetime import datetime
 
-# ==========================================
-# KONFIGURASI BOT @XAU_Rosit_bot
-# ==========================================
-TOKEN = "8448141154:AAFSrEfURZe_za0I8jI5h5o4_Z7mWvOSk4Q" 
-CHAT_ID = "7425438429"
+# Konfigurasi Bot
+TOKEN = "YOUR_TELEGRAM_BOT_TOKEN" # Ganti dengan Token kamu
+CHAT_ID = "YOUR_CHAT_ID" # Ganti dengan Chat ID kamu
+bot = telebot.TeleBot(TOKEN)
 
-def kirim_telegram(pesan):
-    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-    payload = {"chat_id": CHAT_ID, "text": pesan, "parse_mode": "Markdown"}
-    try:
-        requests.post(url, json=payload)
-    except Exception as e:
-        print(f"Error kirim Telegram: {e}")
+def get_gold_data():
+    # Mengambil data emas (XAU/USD)
+    gold = yf.Ticker("GC=F")
+    df = gold.history(period="5d", interval="1h")
+    return df
 
-def run_analysis():
-    # 1. CEK WAKTU (WIB)
-    sekarang = datetime.now()
-    hari_ini = sekarang.weekday() # 0=Senin, ..., 5=Sabtu, 6=Minggu
-    jam_wib = (sekarang.hour + 7) % 24
+def analyze_market():
+    df = get_gold_data()
+    if df.empty:
+        return "Data tidak tersedia"
 
-    # 2. LOGIKA HARI LIBUR (SABTU & MINGGU)
-    if hari_ini >= 5:
-        pesan_libur = (
-            f"🏝️ *Laporan Akhir Pekan - Bisnis Rosit*\n"
-            f"━━━━━━━━━━━━━━━━━━━━\n"
-            f"📢 *STATUS:* PASAR SEDANG TUTUP\n"
-            f"📅 Hari: {'Sabtu' if hari_ini == 5 else 'Minggu'}\n"
-            f"⏰ Jam: {jam_wib}:00 WIB\n"
-            f"━━━━━━━━━━━━━━━━━━━━\n"
-            f"☕ _Tenang saja, Bot tetap siaga di server. Siapkan mental dan modal untuk hari Senin pagi!_"
-        )
-        kirim_telegram(pesan_libur)
-        return 
+    current_price = df['Close'].iloc[-1]
+    high_price = df['High'].max()
+    low_price = df['Low'].min()
+    
+    # Hitung Fibonacci Retracement (0.618)
+    diff = high_price - low_price
+    fibo_618 = high_price - (0.618 * diff)
+    
+    # Indikator Sederhana untuk Alasan (RSI Standar)
+    delta = df['Close'].diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+    rs = gain / loss
+    rsi = 100 - (100 / (1 + rs.iloc[-1]))
 
-    # 3. AMBIL DATA EMAS (HARI KERJA)
-    try:
-        gold = yf.Ticker("GC=F")
-        data = gold.history(period="30d", interval="1h") 
-        
-        if data.empty or len(data) < 20: return
+    # Logika Sinyal Astronacci
+    status = "WAIT AND SEE ⏳"
+    reason = ""
+    signal_msg = ""
 
-        # ANALISA STRATEGI
-        last_candle = data.iloc[-1]
-        price_now = float(last_candle['Close'])
-        high_all = float(data['High'].max())
-        low_all = float(data['Low'].min())
-        res_klasik = float(data['High'].iloc[-20:-1].max())
-        sup_klasik = float(data['Low'].iloc[-20:-1].min())
-        fib_618 = high_all - (0.382 * (high_all - low_all))
-        
-        is_active_market = 14 <= jam_wib <= 23
-        status_market = "🔥 *Market Aktif*" if is_active_market else "💤 *Market Sideways*"
-        
-        sinyal_pesan = ""
-        tolerance = 0.0010
-        if abs(price_now - fib_618) / fib_618 <= tolerance:
-            sinyal_pesan = (
-                f"\n\n🚀 *SINYAL HIGH PROBABILITY*\n"
-                f"📥 *Entry:* ${round(price_now, 2)}\n"
-                f"🎯 *TP:* ${round(res_klasik, 2)}\n"
-                f"🛡️ *SL:* ${round(price_now - 8, 2)}"
-            )
+    # 1. Cek Sinyal Buy
+    if current_price <= fibo_618 * 1.001: # Toleransi 0.1%
+        status = "🚀 SINYAL BUY (ASTRONACCI)"
+        reason = "Harga menyentuh Golden Ratio Fibonacci 0.618. Potensi pantulan naik sangat besar!"
+    # 2. Cek Sinyal Sell (Jika RSI Jenuh Beli)
+    elif rsi > 70:
+        status = "🔥 SINYAL SELL (OVERBOUGHT)"
+        reason = "Harga sudah terlalu mahal (RSI > 70). Waktunya ambil untung atau cari posisi turun."
+    # 3. Kondisi Jangan Entry
+    else:
+        if rsi > 45 and rsi < 55:
+            reason = "Pasar sedang Sideways (datar). Memaksakan entry sekarang berisiko terjebak di harga yang sama dalam waktu lama."
+        elif current_price > fibo_618:
+            reason = "Harga berada di area 'No Man's Land' (tengah-tengah). Terlalu jauh dari level Fibonacci 0.618, risiko rugi lebih besar dari potensi untung."
+        else:
+            reason = "Volume pasar rendah atau pola belum terkonfirmasi sesuai standar Astronacci."
 
-        # LAPORAN PER JAM HARI KERJA
-        laporan = (
-            f"📊 *Laporan Bisnis Rosit*\n"
-            f"━━━━━━━━━━━━━━━━━━━━\n"
-            f"💰 Harga Emas: *${round(price_now, 2)}*\n"
-            f"🏁 {status_market}\n"
-            f"⏰ Jam: {jam_wib}:00 WIB\n"
-            f"━━━━━━━━━━━━━━━━━━━━"
-            f"{sinyal_pesan}"
-        )
-        kirim_telegram(laporan)
-
-    except Exception as e:
-        print(f"Kesalahan teknis: {e}")
+    # Susun Pesan
+    waktu = datetime.now().strftime("%H:%M")
+    message = (
+        f"💰 *LAPORAN BISNIS ROSIT*\n"
+        f"📅 Jam: {waktu} WIB\n"
+        f"💵 Harga Emas: *${current_price:.2f}*\n"
+        f"📈 Fibo 61.8%: ${fibo_618:.2f}\n"
+        f"📊 RSI: {rsi:.2f}\n"
+        f"----------------------------\n"
+        f"📢 *STATUS: {status}*\n"
+        f"🧐 *ANALISIS:* {reason}\n"
+        f"----------------------------\n"
+        f"💡 _Tetap disiplin pada plan, Rosit!_"
+    )
+    
+    return message
 
 if __name__ == "__main__":
-    run_analysis()
+    try:
+        pesan = analyze_market()
+        bot.send_message(CHAT_ID, pesan, parse_mode="Markdown")
+        print("Laporan berhasil dikirim!")
+    except Exception as e:
+        print(f"Error: {e}")
