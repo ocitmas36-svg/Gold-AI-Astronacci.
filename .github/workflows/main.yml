@@ -1,8 +1,8 @@
-name: Gold Bot Rosit
+name: Omniscient Gold Bot
 on:
   schedule:
-    - cron: '*/15 * * * *'
-  workflow_dispatch:
+    - cron: '*/15 * * * *' # Ini perintah rahasia buat jalan tiap 15 menit
+  workflow_dispatch: # Supaya tetap bisa kamu klik manual kalau butuh
 
 jobs:
   build:
@@ -19,9 +19,5 @@ jobs:
       - name: Install dependencies
         run: pip install requests pytz
 
-      - name: Cek File Ada Atau Tidak
-        run: ls -R
-
       - name: Run Bot
         run: python bot_emas.py
-        
