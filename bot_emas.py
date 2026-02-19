@@ -7,46 +7,40 @@ TOKEN = "8448141154:AAFSrEfURZe_za0I8jI5h5o4_Z7mWvOSk4Q"
 CHAT_ID = "7425438429"
 
 def main():
-    print("Memulai sinkronisasi data via jalur cadangan...")
+    print("Mencoba ambil harga emas via jalur alternatif...")
     try:
-        # Gunakan API publik tanpa blokir untuk ambil harga Gold (PAXG)
-        # Kita pakai link ticker simpel agar tidak kena filter 'lastPrice'
-        url_price = "https://api.binance.com/api/v3/ticker/price?symbol=PAXGUSDT"
-        res = requests.get(url_price).json()
+        # Gunakan API CryptoCompare (Lebih stabil untuk bot GitHub)
+        url = "https://min-api.cryptocompare.com/data/price?fsym=PAXG&tsyms=USD"
+        res = requests.get(url).json()
         
-        # Validasi apakah data ada
-        if 'price' in res:
-            p = float(res['price'])
-            print(f"Harga berhasil didapat: {p}")
-        else:
-            print(f"Gagal ambil harga. Respon: {res}")
-            p = 0.0
-
+        # Ambil harga
+        p = res.get('USD', 0)
+        
         # WAKTU JAKARTA
         tz = pytz.timezone('Asia/Jakarta')
         waktu = datetime.now(tz).strftime('%H:%M:%S')
 
         if p > 0:
-            status = "SISTEM AKTIF"
             pesan = (
-                f"✅ OMNISCIENT TERHUBUNG!\n"
-                f"--------------------------\n"
+                f"🔱 OMNISCIENT UPDATE 🔱\n"
+                f"━━━━━━━━━━━━━━━━━━\n"
                 f"🕒 JAM   : {waktu} WIB\n"
                 f"💵 GOLD  : ${p:.2f}\n"
-                f"--------------------------\n"
-                f"Status: Monitoring Aman."
+                f"━━━━━━━━━━━━━━━━━━\n"
+                f"Status: Jalur Alternatif Aktif ✅"
             )
         else:
-            pesan = f"⚠️ Warning: Bot aktif pada {waktu} tapi gagal ambil data harga."
+            pesan = f"⚠️ Sistem aktif pada {waktu}, tapi API sedang limit. Coba lagi nanti."
 
         # KIRIM KE TELEGRAM
         url_tele = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
         r = requests.post(url_tele, json={"chat_id": CHAT_ID, "text": pesan})
         
+        print(f"Harga didapat: {p}")
         print(f"Respon Telegram: {r.text}")
 
     except Exception as e:
-        print(f"Kesalahan Fatal: {e}")
+        print(f"Error: {e}")
 
 if __name__ == "__main__":
     main()
