@@ -1,8 +1,11 @@
 name: Omniscient Gold Bot
+
 on:
   schedule:
-    - cron: '*/15 * * * *' # Ini perintah rahasia buat jalan tiap 15 menit
-  workflow_dispatch: # Supaya tetap bisa kamu klik manual kalau butuh
+    # Menggunakan interval 15 menit yang lebih stabil untuk GitHub
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+    # Memungkinkan kamu menjalankan bot manual dari tombol 'Run Workflow'
 
 jobs:
   build:
@@ -17,7 +20,11 @@ jobs:
           python-version: '3.9'
 
       - name: Install dependencies
-        run: pip install requests pytz
+        run: |
+          pip install requests pytz
 
-      - name: Run Bot
+      - name: Run Gold Bot
+        env:
+          # Menghindari masalah timezone pada sistem GitHub
+          TZ: Asia/Jakarta
         run: python bot_emas.py
