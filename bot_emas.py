@@ -8,29 +8,22 @@ TELE_TOKEN = "8448141154:AAFSrEfURZe_za0I8jI5h5o4_Z7mWvOSk4Q"
 CHAT_ID = "7425438429"
 GEMINI_API_KEY = "AIzaSyBQCQMct2uSDHEIGGUUFoYYmXu38arf98Y"
 
-def get_ai_analysis(p, change, area):
-    """Fungsi Otak AI dengan cadangan logika cerdas"""
+def get_ai_analysis(p, change, area, volatility):
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
-    prompt = f"Rosit tanya: Harga emas sekarang ${p:.2f}, area {area:.1f}. Berikan saran trading singkat 2 kalimat saja panggil nama Rosit."
-    payload = {"contents": [{"parts": [{"text": prompt}]}]}
+    # AI dikasih tahu kondisi volatilitas pasar saat ini
+    v_status = "Tinggi (Liar)" if volatility > 1.5 else "Rendah (Tenang)"
+    prompt = f"Rosit tanya: Harga ${p:.2f}, Area {area:.1f}, Volatilitas {v_status}. Berikan saran trading tegas 2 kalimat panggil Rosit."
     
+    payload = {"contents": [{"parts": [{"text": prompt}]}]}
     try:
         response = requests.post(url, json=payload, timeout=10)
-        res_json = response.json()
-        # Jika sukses ambil dari Gemini
-        return res_json['candidates'][0]['content']['parts'][0]['text']
+        return response.json()['candidates'][0]['content']['parts'][0]['text']
     except:
-        # JALUR CADANGAN: Logika Otomatis jika API Gemini ngadat
-        if area < 35:
-            return f"Halo Rosit! Area {area:.1f} ini diskon besar. Secara teknikal ini momen Buy yang cakep. Sikat tipis-tipis!"
-        elif area > 65:
-            return f"Rosit, hati-hati ya, harga sudah di area {area:.1f} (mahal). Mending jangan kejar atas, rawan longsor!"
-        else:
-            return f"Market lagi anteng di area {area:.1f} nih Rosit. Mending Wait & See dulu sampai ada pergerakan liar."
+        return f"Rosit, market lagi {v_status.lower()}. Pantau area {area:.1f} untuk keputusan entry."
 
 def main():
     try:
-        # 1. DATA HARGA
+        # 1. AMBIL DATA LENGKAP
         url_data = "https://min-api.cryptocompare.com/data/pricemultifull?fsyms=PAXG&tsyms=USD"
         res = requests.get(url_data).json()
         data = res['RAW']['PAXG']['USD']
@@ -40,31 +33,48 @@ def main():
         high = data['HIGH24HOUR']
         change = data['CHANGEPCT24HOUR']
         
-        # 2. LOGIKA TRADING
+        # 2. HITUNG VOLATILITAS ( Momentum Pasar )
+        # Mengukur jarak High-Low dalam persen
+        volatility = ((high - low) / low) * 100
+        
+        # 3. SET TP & SL ADAPTIF ( MENYESUAIKAN MOMENTUM )
+        # Jika market liar, SL diperlebar agar tidak kena 'noise'
+        # Jika market tenang, SL diperketat agar profit lebih presisi
+        if volatility > 1.5: # Market Liar
+            sl_percent = 0.008 # 0.8%
+            tp_percent = 0.015 # 1.5%
+            momen = "⚠️ MOMENTUM: TINGGI (VOLATIL)"
+        else: # Market Tenang
+            sl_percent = 0.004 # 0.4%
+            tp_percent = 0.008 # 0.8%
+            momen = "⚖️ MOMENTUM: STABIL (TENANG)"
+
+        sl = p * (1 - sl_percent)
+        tp = p * (1 + tp_percent)
         area = ((p - low) / (high - low)) * 100 if (high - low) != 0 else 50
-        tp = p * 1.008
-        sl = p * 0.994
 
-        # 3. AMBIL ANALISA
-        ai_msg = get_ai_analysis(p, change, area)
+        # 4. ANALISA AI
+        ai_msg = get_ai_analysis(p, change, area, volatility)
 
-        # 4. WAKTU JAKARTA
+        # 5. WAKTU JAKARTA
         tz = pytz.timezone('Asia/Jakarta')
         waktu = datetime.now(tz).strftime('%H:%M:%S')
 
-        # 5. KIRIM TELEGRAM
+        # 6. KIRIM TELEGRAM
         emoji = "🔥" if area < 35 else "📡"
         msg = (
-            f"{emoji} **OMNISCIENT AI SYSTEM** {emoji}\n"
+            f"{emoji} **OMNISCIENT MOMENTUM** {emoji}\n"
             f"━━━━━━━━━━━━━━━━━━\n"
             f"🕒 **WAKTU** : {waktu} WIB\n"
             f"💵 **GOLD** : `${p:.2f}` ({change:.2f}%)\n"
-            f"📈 **AREA** : {area:.1f}/100\n"
+            f"📊 **AREA** : {area:.1f}/100\n"
             f"━━━━━━━━━━━━━━━━━━\n"
-            f"🧠 **ANALISA:**\n_{ai_msg.strip()}_\n"
+            f"🧠 **ANALISA AI:**\n_{ai_msg.strip()}_\n"
             f"━━━━━━━━━━━━━━━━━━\n"
-            f"🎯 **TP**: `${tp:.2f}`\n"
-            f"🛡️ **SL**: `${sl:.2f}`\n"
+            f"🎯 **ADAPTIVE TP**: `${tp:.2f}`\n"
+            f"🛡️ **ADAPTIVE SL**: `${sl:.2f}`\n"
+            f"💡 **INFO**: {momen}\n"
+            f"━━━━━━━━━━━━━━━━━━"
         )
         
         requests.post(f"https://api.telegram.org/bot{TELE_TOKEN}/sendMessage", 
