@@ -8,19 +8,18 @@ TELE_TOKEN = os.getenv("TELE_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-def get_ai_analysis(p, area, volatility):
+def get_ai_analysis(p, area, volatility, signal):
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
-    v_status = "Liar" if volatility > 1.5 else "Tenang"
     prompt = (
-        f"Analisa Emas untuk Rosit. Harga ${p:.2f}, Area {area:.1f}/100, Volatilitas {v_status}. "
-        f"Berikan saran trading singkat 2 kalimat. Panggil nama Rosit."
+        f"Analisa Emas Rosit. Harga ${p:.2f}, Area {area:.1f}/100, Sinyal {signal}. "
+        f"Berikan saran strategi 2 arah (Buy/Sell) yang tegas untuk Rosit dalam 2 kalimat saja."
     )
     payload = {"contents": [{"parts": [{"text": prompt}]}]}
     try:
         response = requests.post(url, json=payload, timeout=10)
         return response.json()['candidates'][0]['content']['parts'][0]['text']
     except:
-        return f"Rosit, harga emas ${p:.2f}. Pantau area {area:.1f} untuk keputusan entry."
+        return f"Rosit, sinyal saat ini adalah {signal}. Perhatikan manajemen risiko di area {area:.1f}."
 
 def main():
     try:
@@ -36,32 +35,37 @@ def main():
         volatility = ((high - low) / low) * 100
         area = ((p - low) / (high - low)) * 100 if (high - low) != 0 else 50
         
-        # Adaptive SL & TP
-        if volatility > 1.5:
-            sl, tp, status = p * 0.992, p * 1.015, "⚠️ HIGH VOLATILITY"
+        # LOGIKA STRATEGI 2 ARAH (Dinamis)
+        if area < 35:
+            signal = "🟢 SIGNAL: BUY (LONG)"
+            tp = p * 1.010 # Target naik 1%
+            sl = p * 0.995 # Batas rugi 0.5%
+        elif area > 75:
+            signal = "🔴 SIGNAL: SELL (SHORT)"
+            tp = p * 0.990 # Target turun 1%
+            sl = p * 1.005 # Batas rugi 0.5% (di atas harga sekarang)
         else:
-            sl, tp, status = p * 0.996, p * 1.008, "⚖️ NORMAL MARKET"
+            signal = "🟡 SIGNAL: WAIT & SEE"
+            tp = p * 1.005
+            sl = p * 0.995
 
-        ai_msg = get_ai_analysis(p, area, volatility)
+        ai_msg = get_ai_analysis(p, area, volatility, signal)
         tz = pytz.timezone('Asia/Jakarta')
         waktu = datetime.now(tz).strftime('%H:%M:%S')
 
-        signal = "🟢 BUY MOMENTUM" if area < 35 else "🟡 STANDBY"
-        if area > 70: signal = "🔴 OVERBOUGHT"
-
         msg = (
-            f"🔱 **OMNISCIENT GOLD v70** 🔱\n"
+            f"🔱 **OMNISCIENT BI-DIRECTIONAL v80** 🔱\n"
             f"━━━━━━━━━━━━━━━━━━\n"
             f"🕒 **WAKTU** : {waktu} WIB\n"
             f"💵 **PRICE** : `${p:.2f}` ({change:.2f}%)\n"
             f"📊 **AREA** : {area:.1f}/100\n"
-            f"📡 **SIGNAL**: **{signal}**\n"
+            f"📡 **STRATEGY**: **{signal}**\n"
             f"━━━━━━━━━━━━━━━━━━\n"
             f"🧠 **AI ADVISOR:**\n_{ai_msg.strip()}_\n"
             f"━━━━━━━━━━━━━━━━━━\n"
-            f"🎯 **TP**: `${tp:.2f}`\n"
-            f"🛡️ **SL**: `${sl:.2f}`\n"
-            f"💡 **MODE**: {status}\n"
+            f"🎯 **TARGET PROFIT**: `${tp:.2f}`\n"
+            f"🛡️ **STOP LOSS**: `${sl:.2f}`\n"
+            f"💡 **MOMENTUM**: {'TINGGI' if volatility > 1.5 else 'STABIL'}\n"
             f"━━━━━━━━━━━━━━━━━━"
         )
         
