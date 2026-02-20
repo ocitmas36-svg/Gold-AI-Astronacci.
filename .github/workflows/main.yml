@@ -2,10 +2,8 @@ name: Omniscient Gold Bot
 
 on:
   schedule:
-    # Menggunakan interval 15 menit yang lebih stabil untuk GitHub
     - cron: '*/15 * * * *'
   workflow_dispatch:
-    # Memungkinkan kamu menjalankan bot manual dari tombol 'Run Workflow'
 
 jobs:
   build:
@@ -25,6 +23,8 @@ jobs:
 
       - name: Run Gold Bot
         env:
-          # Menghindari masalah timezone pada sistem GitHub
           TZ: Asia/Jakarta
+          TELE_TOKEN: ${{ secrets.TELE_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: python bot_emas.py
