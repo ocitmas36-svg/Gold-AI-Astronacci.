@@ -8,33 +8,37 @@ TELE_TOKEN = os.getenv("TELE_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-def get_ai_analysis(asset_name, p, area, rsi, signal):
+def get_ai_analysis(asset_name, p, area, rsi, signal, est_time):
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
     prompt = (
-        f"Analisa {asset_name} untuk Rosit (Trader Angkringan). "
-        f"Harga: ${p:.2f}, Area: {area:.1f}, RSI: {rsi:.1f}. Sinyal: {signal}. "
-        f"Berikan strategi singkat, tajam, dan panggil Rosit. "
-        f"Gunakan gaya bicara yang memotivasi tapi tetap waspada."
+        f"Analisa {asset_name} untuk Rosit. Harga: ${p:.2f}, Area: {area:.1f}, RSI: {rsi:.1f}. Sinyal: {signal}. "
+        f"Estimasi waktu ke target: {est_time}. "
+        f"Berikan saran ke Rosit: Jika sudah lewat {est_time} tapi masih profit dan belum kena TP, apakah sebaiknya diclose manual? "
+        f"Panggil Rosit dengan akrab dan beri semangat jualan angkringannya."
     )
     payload = {"contents": [{"parts": [{"text": prompt}]}]}
     try:
         response = requests.post(url, json=payload, timeout=10)
         return response.json()['candidates'][0]['content']['parts'][0]['text']
     except:
-        return f"Rosit, sistem mendeteksi {asset_name} di RSI {rsi:.1f}. Tetap fokus pada strategi!"
+        return f"Rosit, estimasi waktu target ±{est_time}. Jika sudah biru/profit tapi waktu habis, pertimbangkan close manual!"
 
 def get_market_data(symbol):
-    # Mengambil histori 14 menit untuk RSI
-    url_hist = f"https://min-api.cryptocompare.com/data/v2/histominute?fsym={symbol}&tsym=USD&limit=14"
+    # Mengambil histori 20 menit terakhir
+    url_hist = f"https://min-api.cryptocompare.com/data/v2/histominute?fsym={symbol}&tsym=USD&limit=20"
     hist_data = requests.get(url_hist).json()['Data']['Data']
     prices = [d['close'] for d in hist_data]
     
+    # Hitung Kecepatan Gerak (Volatility per Minute)
+    moves = [abs(prices[i] - prices[i-1]) for i in range(1, len(prices))]
+    avg_speed = sum(moves) / len(moves) if moves else 0.01
+
     # Kalkulasi RSI
     gains = [prices[i] - prices[i-1] for i in range(1, len(prices)) if prices[i] > prices[i-1]]
     losses = [prices[i-1] - prices[i] for i in range(1, len(prices)) if prices[i] < prices[i-1]]
     avg_gain = sum(gains)/14 if gains else 0
     avg_loss = sum(losses)/14 if losses else 0.001
-    rsi = 100 - (100 / (1 + (avg_gain / avg_loss)))
+    rsi = 100 - (100 / (1 + (avg_gain / (avg_loss if avg_loss > 0 else 0.001))))
 
     # Data Harga Terkini
     url_price = f"https://min-api.cryptocompare.com/data/pricemultifull?fsyms={symbol}&tsyms=USD"
@@ -44,7 +48,7 @@ def get_market_data(symbol):
     high = raw_data['HIGH24HOUR']
     area = ((p - low) / (high - low)) * 100 if (high - low) != 0 else 50
     
-    return p, rsi, area
+    return p, rsi, area, avg_speed
 
 def main():
     assets = [
@@ -57,49 +61,57 @@ def main():
 
     for asset in assets:
         try:
-            p, rsi, area = get_market_data(asset['symbol'])
+            p, rsi, area, avg_speed = get_market_data(asset['symbol'])
             
-            # --- LOGIKA ILMU AKURASI v100 (DI-PISAH) ---
+            # --- LOGIKA TARGET & ESTIMASI ---
             if asset['type'] == "gold":
-                # Ilmu Emas: Konservatif (RSI 30/70)
-                if rsi < 30 and area < 20:
-                    signal, emoji = "🟢 PRECISION BUY (Oversold)", "🔱"
-                    tp, sl = p * 1.007, p * 0.996
-                elif rsi > 70 and area > 80:
-                    signal, emoji = "🔴 PRECISION SELL (Divergence)", "🔱"
-                    tp, sl = p * 0.993, p * 1.004
+                if rsi < 35 and area < 25:
+                    signal, emoji = "🟢 PRECISION BUY", "🔱"
+                    tp, sl = p * 1.006, p * 0.996
+                elif rsi > 65 and area > 75:
+                    signal, emoji = "🔴 PRECISION SELL", "🔱"
+                    tp, sl = p * 0.994, p * 1.004
                 else:
-                    signal, emoji = "🟡 NEUTRAL (Wait)", "🔱"
-                    tp, sl = p * 1.005, p * 0.995
+                    signal, emoji = "🟡 NEUTRAL", "🔱"
+                    tp, sl = p * 1.003, p * 0.997
             else:
-                # Ilmu Bitcoin: Agresif (RSI 20/80 + Momentum)
-                if rsi < 20:
-                    signal, emoji = "🚀 EXTREME BUY (Floor)", "🟠"
-                    tp, sl = p * 1.05, p * 0.97
-                elif rsi > 55 and area > 60:
-                    signal, emoji = "⚡ MOMENTUM RIDE (Whales In)", "🟠"
-                    tp, sl = p * 1.03, p * 0.985
-                elif rsi > 85:
-                    signal, emoji = "🩸 DANGER SELL (Peak)", "🟠"
-                    tp, sl = p * 0.95, p * 1.03
+                if rsi < 25:
+                    signal, emoji = "🚀 EXTREME BUY", "🟠"
+                    tp, sl = p * 1.04, p * 0.97
+                elif rsi > 55 and area > 55:
+                    signal, emoji = "⚡ MOMENTUM RIDE", "🟠"
+                    tp, sl = p * 1.025, p * 0.985
+                elif rsi > 80:
+                    signal, emoji = "🩸 DANGER SELL", "🟠"
+                    tp, sl = p * 0.96, p * 1.03
                 else:
                     signal, emoji = "🟡 CONSOLIDATION", "🟠"
-                    tp, sl = p * 1.02, p * 0.99
+                    tp, sl = p * 1.01, p * 0.99
 
-            ai_msg = get_ai_analysis(asset['name'], p, area, rsi, signal)
+            # Hitung Estimasi Waktu (Jarak TP / Kecepatan gerak per menit)
+            dist_to_tp = abs(tp - p)
+            est_minutes = round(dist_to_tp / (avg_speed if avg_speed > 0 else 0.001))
+            
+            if est_minutes > 60:
+                est_text = f"{round(est_minutes/60, 1)} Jam"
+            else:
+                est_text = f"{est_minutes} Menit"
+
+            ai_msg = get_ai_analysis(asset['name'], p, area, rsi, signal, est_text)
 
             msg = (
-                f"{emoji} **{asset['name']} PRECISION v100** {emoji}\n"
+                f"{emoji} **{asset['name']} v100** {emoji}\n"
                 f"━━━━━━━━━━━━━━━━━━\n"
                 f"🕒 **WAKTU** : {waktu} WIB\n"
                 f"💵 **PRICE** : `${p:.2f}`\n"
                 f"📊 **AREA** : {area:.1f} | **RSI** : {rsi:.1f}\n"
                 f"📡 **SIGNAL**: **{signal}**\n"
+                f"⏳ **ESTIMASI**: ± {est_text}\n"
                 f"━━━━━━━━━━━━━━━━━━\n"
                 f"🧠 **AI ADVISOR:**\n_{ai_msg.strip()}_\n"
                 f"━━━━━━━━━━━━━━━━━━\n"
                 f"🎯 **TP**: `${tp:.2f}` | 🛡️ **SL**: `${sl:.2f}`\n"
-                f"💡 **ACCURACY**: HIGH CONFIRMATION\n"
+                f"💡 **STRATEGY**: TIME-BASED EXIT READY\n"
                 f"━━━━━━━━━━━━━━━━━━"
             )
             
