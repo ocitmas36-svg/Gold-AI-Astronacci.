@@ -2,14 +2,14 @@ import requests
 from datetime import datetime
 import os
 
-# --- KONFIGURASI (KUNCI GITHUB) ---
+# --- KUNCI RAHASIA ---
 TELE_TOKEN = os.getenv("TELE_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 def get_ai_analysis(p, rsi, area, signal, support, resistance, tp, sl):
-    """Edukasi trading lengkap dari Gemini AI"""
-    if not GEMINI_API_KEY: return "Fokus ke angka TP/SL ya, Sit!"
+    """Kuliah Trading dari Gemini AI"""
+    if not GEMINI_API_KEY: return "AI sedang istirahat, Sit!"
     
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
     prompt = (
@@ -21,18 +21,18 @@ def get_ai_analysis(p, rsi, area, signal, support, resistance, tp, sl):
     try:
         res = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}]}, timeout=15)
         return res.json()['candidates'][0]['content']['parts'][0]['text']
-    except: return "AI sedang sibuk, pantau harga di MetaTrader dulu ya!"
+    except: return "Fokus ke angka TP/SL dulu ya Sit, market lagi lincah!"
 
 def get_market_data():
-    """Ambil data Binance dengan cara yang lebih stabil"""
+    """Ambil data harga dengan cara yang stabil"""
     try:
-        # Ambil harga saat ini (Ticker)
+        # Ambil harga detik ini (Ticker)
         p_res = requests.get("https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT", timeout=10).json()
         p_now = float(p_res['price'])
         
         # Ambil data kline 5 menit (M5)
         k_res = requests.get("https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=5m&limit=50", timeout=10).json()
-        prices = [float(x[4]) for x in k_res] # Index 4 adalah harga closing
+        prices = [float(x[4]) for x in k_res] 
         
         support = min(prices)
         resistance = max(prices)
@@ -47,17 +47,16 @@ def get_market_data():
         
         return p_now, rsi, area, support, resistance
     except Exception as e:
-        print(f"❌ Error Detail: {e}")
+        print(f"❌ Error Data: {e}")
         return None
 
 def main():
-    print(f"[{datetime.now()}] Memulai analisa Bitcoin...")
     data = get_market_data()
     if not data: return
 
     p, rsi, area, support, resistance = data
     
-    # LOGIKA ENTRY SENSITIF
+    # LOGIKA ENTRY
     if rsi < 40 and area < 35:
         signal, emoji = "GAS BUY (Momen Murah)", "🟢"
         tp, sl = p * 1.008, p * 0.99
@@ -68,7 +67,6 @@ def main():
         signal, emoji = "NGOPI DULU (Tunggu Momen)", "🟡"
         tp, sl = p, p
 
-    # Ambil Kuliah Singkat AI
     ai_msg = get_ai_analysis(p, rsi, area, signal, support, resistance, tp, sl)
 
     msg = (
@@ -86,16 +84,10 @@ def main():
         f"━━━━━━━━━━━━━━━━━━"
     )
     
-    # KIRIM WAJIB (Meskipun status NGOPI tetap lapor biar Rosit tahu botnya jalan)
-    try:
-        url_tele = f"https://api.telegram.org/bot{TELE_TOKEN}/sendMessage"
-        res = requests.post(url_tele, json={"chat_id": CHAT_ID, "text": msg, "parse_mode": "Markdown"}, timeout=10)
-        if res.status_code == 200:
-            print("✅ BERHASIL! Cek Telegram kamu.")
-        else:
-            print(f"❌ GAGAL KIRIM: {res.text}")
-    except Exception as e:
-        print(f"❌ Error Koneksi Tele: {e}")
+    # KIRIM KE TELEGRAM
+    url_tele = f"https://api.telegram.org/bot{TELE_TOKEN}/sendMessage"
+    requests.post(url_tele, json={"chat_id": CHAT_ID, "text": msg, "parse_mode": "Markdown"})
+    print("✅ Berhasil kirim laporan lengkap!")
 
 if __name__ == "__main__":
     main()
