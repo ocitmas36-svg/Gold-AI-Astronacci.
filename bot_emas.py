@@ -1,6 +1,5 @@
 import requests
 from datetime import datetime
-import pytz
 import os
 
 # --- KONFIGURASI (Pastikan diisi di Environment Variables / Secrets) ---
@@ -9,21 +8,20 @@ CHAT_ID = os.getenv("CHAT_ID")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 def get_ai_analysis(p, area, rsi, signal, support, resistance, tp, sl):
-    """Fungsi untuk mendapatkan edukasi trading dari Gemini AI"""
+    """Fungsi edukasi trading dari Gemini AI"""
     if not GEMINI_API_KEY:
-        return "Rosit, tetap fokus pantau harga ya. Koneksi AI lagi istirahat."
+        return "Rosit, pantau market ya. Koneksi AI lagi istirahat."
 
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
     
-    # PROMPT KHUSUS UNTUK MENGAJAR ROSIT
     prompt = (
-        f"Kamu adalah Guru Trading Profesional untuk Rosit. Aset: BITCOIN (BTC). Harga: ${p:,.2f}. "
-        f"Data Teknis: RSI {rsi:.1f}, Area Harga {area:.1f}%. Sinyal: {signal}. "
-        f"Garis Penting: Support (Lantai) ${support:,.2f}, Resistance (Atap) ${resistance:,.2f}. "
-        f"Rencana: TP di ${tp:,.2f} dan SL di ${sl:,.2f}. "
-        f"TUGAS: Jelaskan singkat kenapa kita entry di titik ini (hubungkan RSI & Area). "
-        f"Jelaskan kenapa SL & TP ditaruh di angka tersebut (hubungkan dengan Lantai/Atap). "
-        f"Gunakan gaya bahasa abang-adik yang akrab, sopan, dan beri semangat buat Rosit yang lagi ngerintis modal dari angkringan."
+        f"Kamu Guru Trading Pro untuk Rosit. Aset: BITCOIN (BTC). Harga: ${p:,.2f}. "
+        f"Data: RSI {rsi:.1f}, Area {area:.1f}%. Sinyal: {signal}. "
+        f"Garis: Lantai ${support:,.2f}, Atap ${resistance:,.2f}. "
+        f"Rencana: TP ${tp:,.2f} & SL ${sl:,.2f}. "
+        f"TUGAS: Jelaskan singkat kenapa entry di sini (RSI & Area). "
+        f"Kenapa SL & TP ditaruh di situ? Gunakan bahasa abang-adik yang akrab, "
+        f"sopan, dan beri semangat buat Rosit yang lagi ngerintis modal dari angkringan."
     )
     
     try:
@@ -31,22 +29,24 @@ def get_ai_analysis(p, area, rsi, signal, support, resistance, tp, sl):
         response = requests.post(url, json=payload, timeout=12)
         return response.json()['candidates'][0]['content']['parts'][0]['text']
     except:
-        return "Sinyal masuk, Rosit! Analisa detail error, tapi fokus ke angka TP/SL dulu ya!"
+        return "Sinyal masuk, Rosit! Fokus ke angka TP/SL dulu ya!"
 
-def get_market_data(symbol):
-    """Fungsi mengambil data market terkini"""
+def get_market_data():
+    """Mengambil data langsung dari API Binance (Agar sinkron dengan MetaTrader)"""
     try:
-        # Menggunakan data 5 menit (M5) agar lebih lincah
-        url = f"https://min-api.cryptocompare.com/data/v2/histominute?fsym={symbol}&tsym=USD&limit=100"
+        # Mengambil data kline/candlestick 5 menit (5m)
+        url = "https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=5m&limit=100"
         res = requests.get(url, timeout=10)
-        data = res.json()['Data']['Data']
-        prices = [d['close'] for d in data]
+        data = res.json()
+        
+        # Harga Close ada di indeks ke-4
+        prices = [float(d[4]) for d in data]
         
         p = prices[-1]
         support = min(prices)
         resistance = max(prices)
         
-        # Hitung RSI (Relative Strength Index) sederhana
+        # Hitung RSI sederhana (14 periode)
         m_prices = prices[-15:]
         gains = [m_prices[i] - m_prices[i-1] for i in range(1, len(m_prices)) if m_prices[i] > m_prices[i-1]]
         losses = [m_prices[i-1] - m_prices[i] for i in range(1, len(m_prices)) if m_prices[i] < m_prices[i-1]]
@@ -54,58 +54,53 @@ def get_market_data(symbol):
         avg_loss = sum(losses)/14 if losses else 0.001
         rsi = 100 - (100 / (1 + (avg_gain / avg_loss)))
         
-        # Area % (Posisi harga terhadap lantai/atap)
+        # Posisi harga (Area %)
         area = ((p - support) / (resistance - support)) * 100 if (resistance - support) != 0 else 50
         
-        # Volatilitas (Kecepatan gerak harga)
+        # Kecepatan market (Volatilitas)
         moves = [abs(prices[i] - prices[i-1]) for i in range(1, len(prices))]
         avg_speed = sum(moves) / len(moves) if moves else 0.01
         
         return p, rsi, area, avg_speed, support, resistance
     except Exception as e:
-        print(f"Error ambil data: {e}")
+        print(f"Error sinkronisasi Binance: {e}")
         return None
 
 def main():
-    # SETTINGAN KHUSUS BTCUSDm
-    asset_name = "BITCOIN (BTC)"
-    symbol = "BTC"
+    asset_name = "BITCOIN (BTCUSDm)"
+    print(f"[{datetime.now()}] Sinkronisasi harga dengan platform...")
     
-    print(f"[{datetime.now()}] Memulai analisa {asset_name}...")
-    data = get_market_data(symbol)
-    
-    if not data:
-        print("Gagal memproses data market.")
-        return
+    data = get_market_data()
+    if not data: return
 
     p, rsi, area, avg_speed, support, resistance = data
     
-    # --- LOGIKA SCALPER SENSITIF (RSI 40/60) ---
+    # --- LOGIKA SCALPER SENSITIF (Sesuai Dana Tipis) ---
     if rsi < 40 and area < 40:
         signal = "🟢 GAS BUY (Momen Murah)"
-        tp, sl = p * 1.008, p * 0.99  # Target untung 0.8%
+        tp, sl = p * 1.008, p * 0.99
     elif rsi > 60 and area > 60:
         signal = "🔴 GAS SELL (Momen Mahal)"
-        tp, sl = p * 0.992, p * 1.01  # Target untung 0.8%
+        tp, sl = p * 0.992, p * 1.01
     else:
-        signal = "🟡 NGOPI DULU (Tunggu Momen)"
+        signal = "🟡 NGOPI DULU (Tengah Tangga)"
         tp, sl = p, p
 
-    # Hitung Estimasi Waktu ke Target
+    # Estimasi Waktu
     dist_to_tp = abs(tp - p)
     est_minutes = round(dist_to_tp / avg_speed) if avg_speed > 0 else 0
     est_text = f"{round(est_minutes/60, 1)} Jam" if est_minutes > 60 else f"{est_minutes} Menit"
 
-    # Panggil Analisa dari Guru AI Gemini
+    # Analisa Guru AI
     ai_msg = get_ai_analysis(p, area, rsi, signal, support, resistance, tp, sl)
 
-    # Format Pesan untuk Telegram
+    # Format Pesan Telegram
     msg = (
         f"🟠 **{asset_name} REPORT** 🟠\n"
         f"━━━━━━━━━━━━━━━━━━\n"
         f"📢 **AKSI**: `{signal}`\n"
         f"━━━━━━━━━━━━━━━━━━\n"
-        f"💵 **HARGA**: `${p:,.2f}`\n"
+        f"💵 **HARGA PLATFORM**: `${p:,.2f}`\n"
         f"📊 **RSI**: {rsi:.1f} | **AREA**: {area:.1f}%\n"
         f"━━━━━━━━━━━━━━━━━━\n"
         f"🧱 **LANTAI (S)**: `${support:,.2f}`\n"
@@ -115,7 +110,7 @@ def main():
         f"🛡️ **STOP LOSS**: `${sl:,.2f}`\n"
         f"⏳ **ESTIMASI**: ± {est_text}\n"
         f"━━━━━━━━━━━━━━━━━━\n"
-        f"📚 **KULIAH DARI GURU AI:**\n{ai_msg}\n"
+        f"📚 **KULIAH GURU AI:**\n{ai_msg}\n"
         f"━━━━━━━━━━━━━━━━━━"
     )
     
@@ -123,9 +118,9 @@ def main():
     try:
         url_tele = f"https://api.telegram.org/bot{TELE_TOKEN}/sendMessage"
         requests.post(url_tele, json={"chat_id": CHAT_ID, "text": msg, "parse_mode": "Markdown"})
-        print(f"✅ Laporan {asset_name} berhasil dikirim ke Telegram!")
+        print("✅ Berhasil! Harga sudah sinkron dengan platform.")
     except Exception as e:
-        print(f"❌ Gagal kirim Telegram: {e}")
+        print(f"❌ Gagal: {e}")
 
 if __name__ == "__main__":
     main()
