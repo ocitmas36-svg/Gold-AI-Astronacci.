@@ -27,4 +27,4 @@ jobs:
           TELE_TOKEN: ${{ secrets.TELE_TOKEN }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: python bot_emas.py
+        run: python Gold_AI_Bot.py
