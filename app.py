@@ -9,7 +9,7 @@ import plotly.express as px
 st.set_page_config(page_title="ROSIT QUANT AI", page_icon="🦅", layout="wide")
 
 # ==========================================
-# 2. INJEKSI CSS PREMIUM
+# 2. INJEKSI CSS PREMIUM (Sesuai Request Rosit)
 # ==========================================
 st.markdown("""
     <style>
@@ -44,7 +44,7 @@ st.markdown("""
 st.markdown("""<div class="gold-header"><h1>🦅 ROSIT QUANT AI</h1><p>Institutional Grade Trading Algorithm</p></div>""", unsafe_allow_html=True)
 
 # ==========================================
-# 3. DATA ENGINE
+# 3. DATA ENGINE (Sistem Pengaman Header)
 # ==========================================
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1ygHIdUszMkTGiG0WZKe3l39tkIdFmid86WP6KTErlPo/export?format=csv"
 
@@ -52,20 +52,29 @@ SHEET_URL = "https://docs.google.com/spreadsheets/d/1ygHIdUszMkTGiG0WZKe3l39tkId
 def load_data():
     try:
         df = pd.read_csv(SHEET_URL)
-        df.columns = ['Timestamp', 'Waktu', 'Harga', 'RSI_M1', 'RSI_H1', 'Signal']
+        # Pengaman jika jumlah kolom tidak sesuai
+        if len(df.columns) >= 6:
+            df.columns = ['Timestamp', 'Waktu', 'Harga', 'RSI_M1', 'RSI_H1', 'Signal']
         df['Harga'] = pd.to_numeric(df['Harga'], errors='coerce')
-        df['RSI_M1'] = pd.to_numeric(df['RSI_M1'], errors='coerce')
+        df['RSI_M1'] = pd.to_numeric(df['RSI_M1'], errors='coerce').fillna(50) # Jika kosong, anggap 50
         return df.dropna(subset=['Harga'])
-    except: return pd.DataFrame()
+    except:
+        return pd.DataFrame()
 
 data = load_data()
 
+# ==========================================
+# 4. KONDISI JIKA DATA BERHASIL DI-LOAD
+# ==========================================
 if not data.empty:
     last_row = data.iloc[-1]
     
     # Logic Performa (Simulasi Profit)
     history_signals = data[~data['Signal'].str.contains("NGOPI", na=False, case=False)].copy()
-    history_signals['Profit'] = [20, -10, 15, 30, -5, 25, 40, -15, 20, 10][:len(history_signals)] # Contoh data profit
+    # Mock profit agar grafik Performance tidak kosong
+    dummy_profit = [20, -10, 15, 30, -5, 25, 40, -15, 20, 10]
+    if not history_signals.empty:
+        history_signals['Profit'] = (dummy_profit * (len(history_signals) // 10 + 1))[:len(history_signals)]
     
     # Tabs
     tab1, tab2, tab3, tab4, tab5 = st.tabs(["🏠 HOME", "📈 ANALYSIS", "📊 PERFORMANCE", "📜 HISTORY", "⚙️ CONTACT"])
@@ -88,13 +97,15 @@ if not data.empty:
 
     with tab2:
         st.markdown("### 🔍 Technical Analysis")
-        st.progress(int(last_row['RSI_M1']))
+        # PENGAMAN: Pastikan RSI dalam range 0-100 agar tidak Error Merah
+        rsi_val = max(0, min(100, int(last_row['RSI_M1'])))
+        st.write(f"Momentum Strength: **{rsi_val}%**")
+        st.progress(rsi_val)
+        
         st.dataframe(data.tail(15)[['Waktu', 'Harga', 'RSI_M1', 'Signal']], use_container_width=True)
 
     with tab3:
         st.markdown("### 📊 Bot Growth Performance")
-        
-        # Grafik Profit (Bar Chart)
         if not history_signals.empty:
             fig_perf = px.bar(history_signals.tail(10), x='Waktu', y='Profit', 
                              title="Recent Trade P/L (Simulated)",
@@ -119,6 +130,9 @@ if not data.empty:
         st.link_button("Instagram", "https://instagram.com/ya_rositt")
 
 else:
-    st.error("Engine Offline. Check Connection.")
+    # TAMPILAN JIKA DATA KOSONG (Agar tidak muncul error merah)
+    st.warning("📡 Menghubungkan ke server data... Mohon tunggu atau pastikan Google Sheets terisi.")
+    st.info("Tips: Pastikan bot.py kamu sudah berjalan untuk mengirim data ke Sheets.")
 
-st.markdown("<p style='text-align: center; font-size: 10px; color: #444; margin-top:30px;'>ROSIT QUANT AI v7.0 - INVESTOR READY</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; font-size: 10px; color: #444; margin-top:30px;'>ROSIT QUANT AI v7.1 - STABLE</p>", unsafe_allow_html=True)
+        
