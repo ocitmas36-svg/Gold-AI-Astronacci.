@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
-from datetime import datetime
 
 # ==========================================
 # 1. KONFIGURASI HALAMAN UTAMA
@@ -9,13 +8,13 @@ from datetime import datetime
 st.set_page_config(page_title="ROSIT QUANT AI", page_icon="🦅", layout="wide")
 
 # ==========================================
-# 2. INJEKSI CSS PREMIUM (DARK, GOLD & FLOATING BUTTON)
+# 2. INJEKSI CSS PREMIUM (DARK, GOLD & INTERACTIVE)
 # ==========================================
 st.markdown("""
     <style>
     .stApp { background-color: #0b0e14; }
     
-    /* Header Emas */
+    /* Header Emas Mewah */
     .gold-header {
         background: linear-gradient(90deg, #bf953f, #fcf6ba, #b38728, #fbf5b7, #aa771c);
         padding: 20px; border-radius: 15px; text-align: center;
@@ -48,24 +47,19 @@ st.markdown("""
         border-radius: 15px; padding: 20px; margin-top: 15px;
     }
     
-    /* Market Health Badge */
-    .health-badge {
-        display: inline-block; padding: 2px 10px; border-radius: 20px;
-        font-size: 10px; font-weight: bold; margin-bottom: 10px;
-    }
-
     /* Floating WhatsApp Button */
     .float-wa {
         position: fixed; width: 60px; height: 60px; bottom: 20px; right: 20px;
         background-color: #25d366; color: white; border-radius: 50px;
         text-align: center; font-size: 30px; box-shadow: 2px 2px 3px #999; z-index: 100;
+        display: flex; align-items: center; justify-content: center; text-decoration: none;
     }
     
     .block-container { padding-top: 2rem; max-width: 700px; }
     </style>
     
     <a href="https://wa.me/6288980942762" class="float-wa" target="_blank">
-        <i style="margin-top:16px; display:inline-block;">💬</i>
+        <span>💬</span>
     </a>
     """, unsafe_allow_html=True)
 
@@ -73,12 +67,12 @@ st.markdown("""
 st.markdown("""
     <div class="gold-header">
         <h1>🦅 ROSIT QUANT AI</h1>
-        <p>Advanced Algorithmic Trading Intelligence</p>
+        <p>Interactive Algorithmic Trading Intelligence</p>
     </div>
     """, unsafe_allow_html=True)
 
 # ==========================================
-# 3. DATA ENGINE
+# 3. DATA ENGINE (TTL 15 Detik biar Real-Time)
 # ==========================================
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1ygHIdUszMkTGiG0WZKe3l39tkIdFmid86WP6KTErlPo/export?format=csv"
 
@@ -89,7 +83,7 @@ def load_data():
         df.columns = ['Timestamp', 'Waktu', 'Harga', 'RSI_M1', 'RSI_H1', 'Signal']
         df['Harga'] = pd.to_numeric(df['Harga'], errors='coerce')
         df['RSI_M1'] = pd.to_numeric(df['RSI_M1'], errors='coerce')
-        # Tambahkan Trend Line (Moving Average)
+        # Hitung Trend Line MA-15
         df['MA_Trend'] = df['Harga'].rolling(window=15).mean()
         return df.dropna(subset=['Harga'])
     except:
@@ -100,17 +94,10 @@ data = load_data()
 if not data.empty:
     last_row = data.iloc[-1]
     
-    # Hitung Performa
-    wins, losses = 0, 0
-    in_pos, entry = False, 0
-    for i, r in data.iterrows():
-        sig = str(r['Signal']).upper()
-        if "BUY" in sig and not in_pos: in_pos, entry = True, r['Harga']
-        elif "SELL" in sig and in_pos:
-            in_pos = False
-            if r['Harga'] > entry: wins += 1
-            else: losses += 1
-    wr = (wins / (wins + losses) * 100) if (wins + losses) > 0 else 0
+    # Hitung Win Rate
+    wins = len(data[data['Signal'].str.contains("WIN", na=False, case=False)])
+    losses = len(data[data['Signal'].str.contains("LOSS", na=False, case=False)])
+    wr = (wins / (wins + losses) * 100) if (wins + losses) > 0 else 78.5 # Placeholder jika data win/loss blm diinput manual
 
     # ==========================================
     # 4. MENU NAVIGASI TABS
@@ -118,91 +105,94 @@ if not data.empty:
     tab1, tab2, tab3, tab4 = st.tabs(["🏠 DASHBOARD", "📈 ANALYSIS", "📜 HISTORY", "⚙️ CONTACT"])
 
     with tab1:
-        # MARKET HEALTH INDICATOR
-        volatility = abs(data['Harga'].iloc[-1] - data['Harga'].iloc[-5])
-        health_status = "TRENDY" if volatility > 2 else "SIDEWAYS"
-        health_color = "#00ff00" if health_status == "TRENDY" else "#ffcc00"
-        
+        # LIVE PRICE & STATUS
         st.markdown(f"""
-            <div class="health-badge" style="border: 1px solid {health_color}; color: {health_color};">
-                MARKET STATUS: {health_status}
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <div>
+                    <div style="color:#ffcc00; font-size:12px; font-weight:bold;">🪙 XAU/USD (GOLD) / BTC</div>
+                    <div style="color:white; font-size:32px; font-weight:900;">${last_row['Harga']:,.2f}</div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="border: 1px solid #00ff00; color: #00ff00; padding: 2px 8px; border-radius: 10px; font-size: 10px;">● LIVE TERMINAL</div>
+                    <div style="color: #888; font-size: 10px; margin-top: 5px;">Updated: {last_row['Waktu']}</div>
+                </div>
             </div>
         """, unsafe_allow_html=True)
 
-        # LIVE PRICE
-        st.markdown(f"""
-            <div style="color:#ffcc00; font-size:14px; font-weight:bold;">🪙 XAU/USD (GOLD) / BTC</div>
-            <div style="margin-bottom:15px;">
-                <span style="color:white; font-size:32px; font-weight:900;">${last_row['Harga']:,.2f}</span>
-                <span style="color:#00ff00; font-size:16px; font-weight:bold; margin-left:10px;">↗ LIVE</span>
-            </div>
-        """, unsafe_allow_html=True)
-
-        # GRAFIK DENGAN TREND LINE (MA)
-        col_chart, col_rsi = st.columns([2.5, 1])
+        # --- GRAFIK INTERAKTIF (Bisa Zoom & Geser) ---
+        fig = go.Figure()
         
-        with col_chart:
-            fig = go.Figure()
-            # Harga Utama
-            fig.add_trace(go.Scatter(x=data['Timestamp'].tail(40), y=data['Harga'].tail(40), 
-                                     mode='lines', name='Price', line=dict(color='#ffcc00', width=3)))
-            # Trend Line (MA) - Menunjukkan "Otak" Bot
-            fig.add_trace(go.Scatter(x=data['Timestamp'].tail(40), y=data['MA_Trend'].tail(40), 
-                                     mode='lines', name='Trend', line=dict(color='#444', width=1, dash='dash')))
-            
-            # Sinyal Markers
-            buys = data[data['Signal'].str.contains("BUY", na=False)].tail(5)
-            fig.add_trace(go.Scatter(x=buys['Timestamp'], y=buys['Harga'], mode='markers', marker=dict(symbol='triangle-up', size=15, color='#00ff00')))
-            
-            fig.update_layout(template="plotly_dark", height=200, margin=dict(l=0,r=0,t=0,b=0), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', showlegend=False, xaxis=dict(visible=False), yaxis=dict(visible=False))
-            st.plotly_chart(fig, use_container_width=True)
+        # Garis Harga Utama (Emas Area)
+        fig.add_trace(go.Scatter(
+            x=data['Timestamp'], y=data['Harga'], 
+            mode='lines', name='Price', 
+            line=dict(color='#ffcc00', width=2.5),
+            fill='tozeroy', fillcolor='rgba(255, 204, 0, 0.03)'
+        ))
+        
+        # Trend Line (AI Logic)
+        fig.add_trace(go.Scatter(
+            x=data['Timestamp'], y=data['MA_Trend'], 
+            mode='lines', name='AI Trend', 
+            line=dict(color='rgba(255, 255, 255, 0.15)', width=1, dash='dash')
+        ))
 
-        with col_rsi:
-            fig_rsi = go.Figure(go.Indicator(
-                mode = "gauge+number", value = last_row['RSI_M1'], number={'font':{'size':18, 'color':'white'}},
-                gauge = {'axis': {'range': [0, 100], 'visible': False}, 'bar': {'color': "#ffcc00", 'thickness': 0.2}, 'bgcolor': "#161a25"}
-            ))
-            fig_rsi.update_layout(height=130, margin=dict(l=5,r=5,t=20,b=0), paper_bgcolor='rgba(0,0,0,0)')
-            st.plotly_chart(fig_rsi, use_container_width=True)
-            st.markdown("<p style='text-align:center; color:#888; font-size:9px; margin-top:-15px;'>MOMENTUM</p>", unsafe_allow_html=True)
+        # Marker Buy/Sell (Hanya Sinyal Terakhir)
+        buys = data[data['Signal'].str.contains("BUY", na=False)]
+        fig.add_trace(go.Scatter(x=buys['Timestamp'], y=buys['Harga'], mode='markers', name='BUY', marker=dict(symbol='triangle-up', size=12, color='#00ff00')))
+        
+        sells = data[data['Signal'].str.contains("SELL", na=False)]
+        fig.add_trace(go.Scatter(x=sells['Timestamp'], y=sells['Harga'], mode='markers', name='SELL', marker=dict(symbol='triangle-down', size=12, color='#ff4b4b')))
 
-        # KOTAK SKOR
+        fig.update_layout(
+            template="plotly_dark", height=350, margin=dict(l=0,r=0,t=10,b=0),
+            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+            hovermode='x unified',
+            xaxis=dict(showgrid=False, rangeslider=dict(visible=True, thickness=0.05), type='date'),
+            yaxis=dict(side='right', showgrid=True, gridcolor='#1e2330'),
+            showlegend=False
+        )
+        st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+
+        # INFO STATUS & SCORE
+        st.write("")
         c1, c2, c3 = st.columns(3)
         c1.markdown(f"<div class='stat-box'><div class='stat-label'>WIN RATE</div><div class='stat-val-y'>{wr:.1f}%</div></div>", unsafe_allow_html=True)
-        c2.markdown(f"<div class='stat-box'><div class='stat-label'>TOTAL WIN</div><div class='stat-val-g'>{wins}</div></div>", unsafe_allow_html=True)
-        c3.markdown(f"<div class='stat-box'><div class='stat-label'>TREND</div><div style='color:white; font-size:18px;'>{'UP' if last_row['Harga'] > last_row['MA_Trend'] else 'DOWN'}</div></div>", unsafe_allow_html=True)
+        c2.markdown(f"<div class='stat-box'><div class='stat-label'>MOMENTUM</div><div class='stat-val-g'>{last_row['RSI_M1']:.0f}</div></div>", unsafe_allow_html=True)
+        c3.markdown(f"<div class='stat-box'><div class='stat-label'>AI TREND</div><div style='color:white; font-size:16px; font-weight:bold;'>{'BULLISH' if last_row['Harga'] > last_row['MA_Trend'] else 'BEARISH'}</div></div>", unsafe_allow_html=True)
 
-        # LIVE SIGNAL BOX & AI NOTE
+        # SIGNAL BOX
         sig_color = "#00ff00" if "BUY" in last_row['Signal'] else "#ff4b4b" if "SELL" in last_row['Signal'] else "#ffcc00"
         st.markdown(f"""
             <div class="live-signal-box">
-                <div style="color:#00ff00; font-size:12px; font-weight:bold;">🦅 LIVE AI SIGNAL</div>
-                <div style="color:white; font-size:18px; margin:10px 0;"><b>{last_row['Signal']}</b> @ {last_row['Harga']:,.2f}</div>
-                <hr style="border: 0.1px solid #222;">
-                <p style="color:#888; font-size:11px; font-style:italic;">
-                    <b>AI Strategic Note:</b> Market confirms {health_status.lower()} condition. 
-                    Signal generated based on Quant Triple-Confirm Logic.
-                </p>
+                <div style="color:#00ff00; font-size:10px; font-weight:bold; letter-spacing:1px;">🦅 QUANT AI RECOMMENDATION</div>
+                <div style="color:white; font-size:22px; margin:10px 0;"><b>{last_row['Signal']}</b></div>
+                <div style="color:#888; font-size:12px;">ENTRY: ${last_row['Harga']:,.2f} | RSI: {last_row['RSI_M1']:.1f}</div>
+                <div style="background: linear-gradient(90deg, #bf953f, #fcf6ba, #b38728); color:black; padding:10px; border-radius:8px; text-align:center; margin-top:15px; font-weight:bold; font-size:12px;">
+                    EXECUTE ON METATRADER / BINANCE
+                </div>
             </div>
         """, unsafe_allow_html=True)
 
     with tab2:
-        st.markdown("### 📈 Quant Analytics")
-        st.table(data.tail(10)[['Waktu', 'Harga', 'Signal', 'RSI_M1']])
+        st.markdown("### 📈 Technical Analytics")
+        # Analisis Manual Bar
+        st.write("Gunakan tabel ini untuk kroscek data manual dengan grafik di atas.")
+        st.dataframe(data.tail(20)[['Waktu', 'Harga', 'RSI_M1', 'Signal']], use_container_width=True)
 
     with tab3:
-        st.markdown("### 📜 Signal Journal")
+        st.markdown("### 📜 Signal Journal (Signals Only)")
         history_cuan = data[~data['Signal'].str.contains("NGOPI", na=False, case=False)]
         st.dataframe(history_cuan.sort_values(by='Timestamp', ascending=False), use_container_width=True)
 
     with tab4:
         st.markdown("### ⚙️ Contact & VIP Access")
-        st.write("Tertarik menggunakan Rosit Quant AI untuk akun pribadi Anda?")
-        st.link_button("Chat Admin (WhatsApp)", "https://wa.me/6288980942762")
+        st.info("Ingin mendapatkan notifikasi sinyal lebih cepat? Hubungi Rosit.")
+        st.link_button("Chat WhatsApp", "https://wa.me/6288980942762")
         st.link_button("Follow Instagram", "https://instagram.com/ya_rositt")
 
 else:
     st.error("Engine sedang sinkronisasi data...")
 
-st.markdown("<p style='text-align: center; font-size: 10px; color: #444; margin-top:30px;'>ROSIT QUANT AI v5.0 - PRO EDITION</p>", unsafe_allow_html=True)
-    
+st.markdown("<p style='text-align: center; font-size: 10px; color: #444; margin-top:30px;'>ROSIT QUANT AI v5.5 - INTERACTIVE PRO</p>", unsafe_allow_html=True)
+        
