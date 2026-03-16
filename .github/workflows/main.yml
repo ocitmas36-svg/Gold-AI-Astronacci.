@@ -1,30 +1,30 @@
-name: Omniscient Gold Bot
+name: Rosit Quant AI Engine
 
 on:
   schedule:
-    - cron: '*/15 * * * *'
-  workflow_dispatch:
+    - cron: '0 */6 * * *'  # Jalan otomatis setiap 6 jam
+  workflow_dispatch:       # Tombol "Run Manual"
+  push:
+    branches: [ main ]     # Jalan otomatis tiap kamu update code
 
 jobs:
-  build:
+  run-bot:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: Checkout Code
         uses: actions/checkout@v3
 
-      - name: Set up Python
+      - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.9'
 
-      - name: Install dependencies
-        run: |
-          pip install requests pytz
+      - name: Install Dependencies
+        run: pip install requests pytz pandas
 
-      - name: Run Gold Bot
+      - name: Running Smart Engine
         env:
-          TZ: Asia/Jakarta
           TELE_TOKEN: ${{ secrets.TELE_TOKEN }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: python bot_emas.py
+        run: python bot.py
+        
